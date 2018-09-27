@@ -22,9 +22,15 @@ class Application(object):
     def __init__(self, width, height):
         self.cd = CollectionData()
         self.rf = RequestFormatter()
-        self.screen = pygame.display.set_mode(size)
+        self.screen = pygame.display.set_mode(size,pygame.RESIZABLE)
         self.sprites = pygame.sprite.Group()
-        self.page_layout = PageLayout(100, 10, width-100, height-50-10)
+        page_layout = PageLayout(100, 10, width-100, height-50-10)
+        left_button = Button(         0,       height // 2, 100, 100, img_path="./scr_images/red_arrow.png", on_clicks=[page_layout.prev_page], flip=True)
+        right_button = Button(width - 100, height // 2, 100, 100, img_path="./scr_images/red_arrow.png", on_clicks=[page_layout.next_page])
+        self.tab_layout = TabLayout(0,0,width,height-50, 
+                            tabs={"explore":[page_layout, left_button, right_button], 
+                            "collection":[PageLayout(100, 10, width-100, height-50-10)],
+                            })
         self.main()
 
     def main(self):
@@ -48,8 +54,9 @@ class Application(object):
             for element in ui_elements:
                 element.draw(self.screen)
             
-            self.page_layout.draw(self.screen)
-            self.sprites.draw(self.screen)
+            self.tab_layout.draw(self.screen)
+            #self.page_layout.draw(self.screen)
+            #self.sprites.draw(self.screen)
             pygame.display.flip()
 
 
@@ -57,15 +64,19 @@ class Application(object):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 sys.exit()
+            if event.type == pygame.VIDEORESIZE:
+                width,height = event.size
+                self.screen = pygame.display.set_mode((width, height), pygame.RESIZABLE)
+                self.tab_layout.set_rect(pygame.rect.Rect(0, 0, width, height-50))
             for element in ui_elements:
                 element.handle_event(event)
+            
+            self.tab_layout.handle_event(event)
 
     def make_ui_objects(self, rect):
         objs = []
         screen_width, screen_height = self.screen.get_size()
         objs.append(InputBox(5, screen_height-50-5, 400, 50, font_size=32, listeners=[self.load_card_page]))
-        objs.append(Button(         0,       rect.height // 2, 100, 100, "./scr_images/red_arrow.png", on_clicks=[self.page_layout.prev_page], flip=True))
-        objs.append(Button(rect.width - 100, rect.height // 2, 100, 100, "./scr_images/red_arrow.png", on_clicks=[self.page_layout.next_page]))
         return objs
     
     # Bound to return key on text box
@@ -88,8 +99,13 @@ class Application(object):
                 else:
                     data = load_sprite(card.multiverse_id)
                     sprites.append(CardSprite(0,0,100,100,data["path"]))
-        self.page_layout.set_sprites(sprites)
-        self.page_layout.set_images(sprites)
+        active_tab_elements = self.tab_layout.get_active_tab_elements()
+        # If any of the elements are PageLayouts than set there images up with what we found
+        for element in active_tab_elements:
+            print(type(element))
+            if type(element) == PageLayout:
+                element.set_sprites(sprites)
+                element.set_images(sprites)
 
 
 
