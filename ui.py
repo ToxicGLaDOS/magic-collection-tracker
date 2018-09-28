@@ -74,61 +74,66 @@ class InputBox(UIElement):
 
 
 class PageLayout(Layout):
-    def __init__(self, x, y, width, height, sprites=[]):
+    def __init__(self, x, y, width, height, layouts=[]):
         self.rect = PreciseRect(x, y, width, height)
-        self.sprites = sprites
+        self.layouts = layouts
         self.active_group = pg.sprite.Group()
         self.padding=10
         self.x_fit = None
         self.y_fit = None
         self.first_showing = 0
         self.last_showing = 0
-        self.set_images(sprites)
+        self.set_layouts(layouts)
 
-        
-    def set_images(self, sprites, start_index=0):
-        self.active_group = pg.sprite.Group()
+
+    def set_layouts(self, layouts, start_index=0):
+        self.active_group = []
         x,y = self.rect.topleft
         width, height = self.rect.size
-        if len(sprites) - start_index > 0:
-            sprite_rect = sprites[0].rect
+        if len(layouts) - start_index > 0:
+            sprite_rect = layouts[0].rect
             self.x_fit = int(width / (sprite_rect.width + self.padding * 2))
             self.y_fit = int(height / (sprite_rect.height + self.padding * 2))
             self.first_showing = self.last_showing = start_index
             
 
             x_index = y_index = 0
-            for sprite_index in range(min(self.x_fit * self.y_fit, len(sprites) - start_index)):
-                cur_sprite = sprites[start_index + sprite_index]
-                x_index = sprite_index % self.x_fit
-                y_index = sprite_index // self.x_fit
+            for layout_index in range(min(self.x_fit * self.y_fit, len(layouts) - start_index)):
+                cur_layout = layouts[start_index + layout_index]
+                x_index = layout_index % self.x_fit
+                y_index = layout_index // self.x_fit
 
-                cur_sprite.rect.x = x + self.padding * (x_index+1) + sprite_rect.width * (x_index)
-                cur_sprite.rect.y = y + self.padding * (y_index+1) + sprite_rect.height * (y_index)
+                cur_layout_x = x + self.padding * (x_index+1) + sprite_rect.width * (x_index)
+                cur_layout_y = y + self.padding * (y_index+1) + sprite_rect.height * (y_index)
                 
-                self.active_group.add(cur_sprite)
+                cur_layout.set_rect(pg.rect.Rect(cur_layout_x, cur_layout_y, cur_layout.rect.width, cur_layout.rect.height))
+
+                self.active_group.append(cur_layout)
 
                 
                 self.last_showing += 1
             
-    def set_sprites(self, sprites):
-        self.sprites = sprites
 
-    def next_page(self, button):
-        if len(self.sprites) > 0 and self.last_showing != len(self.sprites):
-            self.set_images(self.sprites, self.last_showing)
+    def next_page(self):
+        if len(self.layouts) > 0 and self.last_showing != len(self.layouts):
+            self.set_layouts(self.layouts, self.last_showing)
 
-    def prev_page(self, button):
+    def prev_page(self):
         # len(self.sprites) > 0 shortcircuits the if statements so we don't crash if self.x_fit/self.y_fit are None
-        if len(self.sprites) > 0 and self.first_showing - (self.x_fit * self.y_fit) >= 0:
-            self.set_images(self.sprites, self.first_showing - (self.x_fit * self.y_fit))
+        if len(self.layouts) > 0 and self.first_showing - (self.x_fit * self.y_fit) >= 0:
+            self.set_layouts(self.layouts, self.first_showing - (self.x_fit * self.y_fit))
 
     def draw(self, surface):
-        self.active_group.draw(surface)
+        for layout in self.active_group:
+            layout.draw(surface)
+
+    def handle_event(self, event):
+        for layout in iter(self.active_group):
+            layout.handle_event(event)
 
     def set_rect(self, new_rect):
         self.rect = new_rect
-        self.set_images(self.sprites, self.first_showing)
+        self.set_layouts(self.layouts, self.first_showing)
 
 
 
@@ -242,12 +247,15 @@ class Button(UIElement):
         
         self.on_clicks = on_clicks
     
+    def add_on_click(self, func):
+        self.on_clicks.append(func)
+
     def handle_event(self, event):
         if event.type == pg.MOUSEBUTTONDOWN:
             if self.rect.collidepoint(event.pos):
                 print('clicked')
                 for on_click in self.on_clicks:
-                    on_click(self)
+                    on_click()
                     
 
     def draw(self, surface):
@@ -270,17 +278,92 @@ class Button(UIElement):
                 if self.flip:
                     self.image = pg.transform.flip(self.image, True, False)
 
-class CardSprite(pg.sprite.Sprite):
-    def __init__(self, x, y, width, height, image_path):
-        pg.sprite.Sprite.__init__(self)
+class CardSprite(UIElement):
+    def __init__(self, card, image_path, on_clicks=[]):
         
+        self.card = card
         self.image = pg.image.load(image_path)
 
         self.rect = self.image.get_rect()
-        
+        self.on_clicks = on_clicks
+
+    def handle_event(self, event):
+        if event.type == pg.MOUSEBUTTONDOWN:
+            if self.rect.collidepoint(event.pos):
+                for on_click in self.on_clicks:
+                    on_click(self.card)
+
+    def draw(self, surface):
+        surface.blit(self.image, (self.rect.x, self.rect.y))
 
     def update(self):
         pass
 
+
+class CardLayout(Layout):
+    def __init__(self, x, y, card_sprite, left_button, right_button, collection_data):
+        self.card_sprite = card_sprite
+        self.left_button = left_button
+        self.right_button = right_button
+
+        self.cd = collection_data
+
+
+        self.text = str(self.cd.num_owned(self.card_sprite.card))
+
+        self.font = pg.font.Font(None, 32)
+        self.color = pg.Color('dodgerblue2')
+        self.txt_surface = self.font.render(self.text, True, self.color)
+
+        self.button_width = 50
+        self.button_height = 50
+
+        # We use set_rect like this to ensure the layout happens immediatly
+        self.rect = None
+        self.set_rect(pg.rect.Rect(x, 
+                                   y, 
+                                   self.card_sprite.rect.width, 
+                                   self.card_sprite.rect.height + self.button_height))
+
+    
+    def draw(self, surface):
+        self.card_sprite.draw(surface)
+        self.left_button.draw(surface)
+        self.right_button.draw(surface)
+        surface.blit(self.txt_surface, (self.rect.x + self.button_width, self.rect.y + self.rect.height - self.button_height))
+        pg.draw.rect(surface, pg.Color('dodgerblue2'), self.rect, 2)
+    
+    def handle_event(self, event):
+        self.left_button.handle_event(event)
+        self.right_button.handle_event(event)
+    
+    def set_rect(self, new_rect):
+        self.card_sprite.rect = pg.rect.Rect(new_rect.x, 
+                                             new_rect.y, 
+                                             new_rect.width, 
+                                             new_rect.height - self.button_height)
+
+        self.left_button.set_rect(pg.rect.Rect(new_rect.x,
+                                               new_rect.y + self.card_sprite.rect.height,
+                                               self.button_width,
+                                               self.button_height))
+
+        self.right_button.set_rect(pg.rect.Rect(new_rect.x + self.card_sprite.rect.width - self.button_width,
+                                                new_rect.y + self.card_sprite.rect.height,
+                                                self.button_width,
+                                                self.button_height))
+        self.rect = new_rect
+    
+    def add_card(self):
+        self.cd.add_card(self.card_sprite.card)
+        self.text = str(int(self.text) + 1)
+        self.txt_surface = self.font.render(self.text, True, self.color)
+        print("added card")
+    
+    def remove_card(self):
+        self.cd.remove_card(self.card_sprite.card)
+        self.text = str(int(self.text) - 1)
+        self.txt_surface = self.font.render(self.text, True, self.color)
+        print("removed card")
 
 

@@ -35,7 +35,6 @@ class Application(object):
 
     def main(self):
         ui_elements = self.make_ui_objects(self.screen.get_rect())
-        self.cd.save()
         while 1:
             # Events phase
             self.handle_events(ui_elements)
@@ -63,15 +62,25 @@ class Application(object):
     def handle_events(self, ui_elements):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                sys.exit()
+                self.cleanup()
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    self.cleanup()
             if event.type == pygame.VIDEORESIZE:
                 width,height = event.size
                 self.screen = pygame.display.set_mode((width, height), pygame.RESIZABLE)
                 self.tab_layout.set_rect(pygame.rect.Rect(0, 0, width, height-50))
+
             for element in ui_elements:
                 element.handle_event(event)
+
+            
             
             self.tab_layout.handle_event(event)
+
+    def cleanup(self):
+        self.cd.save()
+        sys.exit()
 
     def make_ui_objects(self, rect):
         objs = []
@@ -84,9 +93,10 @@ class Application(object):
         # Get cards that match the search
         cards = self.rf.search(text)
         # For each card save it to cache
-        sprites = []
+        layouts = []
         for card in cards:
             if card.multiverse_id != None:
+                data = None
                 # If the sprite isn't in the cache
                 if not sprite_in_cache(card.multiverse_id):
                     print(f"Downloading {card.name} from server.")
@@ -94,19 +104,27 @@ class Application(object):
                     img = Image.open(BytesIO(response.content))
                     save_sprite(img, card.multiverse_id)
                     data = load_sprite(card.multiverse_id)
-                    sprites.append(CardSprite(0,0,100,100,data["path"]))
                 # If the sprite is in the cache
                 else:
                     data = load_sprite(card.multiverse_id)
-                    sprites.append(CardSprite(0,0,100,100,data["path"]))
+                sprite = CardSprite(card, data["path"])
+
+                # On click methods are added after layout is made
+                left_button = Button(0, 0, 100, 100, img_path='./scr_images/minus.png', on_clicks=[])
+                right_button = Button(0, 0, 100, 100, img_path='./scr_images/plus.png', on_clicks=[])
+
+                layout = CardLayout(0, 0, sprite, left_button, right_button, self.cd)
+
+                left_button.add_on_click(layout.remove_card)
+                right_button.add_on_click(layout.add_card)
+                layouts.append(layout)
         active_tab_elements = self.tab_layout.get_active_tab_elements()
         # If any of the elements are PageLayouts than set there images up with what we found
         for element in active_tab_elements:
-            print(type(element))
             if type(element) == PageLayout:
-                element.set_sprites(sprites)
-                element.set_images(sprites)
-
+                element.layouts = layouts
+                element.set_layouts(layouts)
+    
 
 
 
