@@ -16,6 +16,11 @@ class CollectionData(object):
 
     # Adds a card to the collection
     def add_card(self, card):
+        """ Adds one card from the collection. If the card already exists in the collection it adds one to owned. 
+
+        `card` Should be a mtgsdk.Card type. Will throw error otherwise
+
+        :param card: The card to add."""
         if type(card) != Card:
             raise ValueError("You must only add Cards types to your collection.")
 
@@ -35,6 +40,11 @@ class CollectionData(object):
 
     # Removes a card from the collection
     def remove_card(self, card):
+        """ Removes one card from the collection. If the card doesn't exist in the collection it does nothing. 
+
+        `card` Should be a mtgsdk.Card type. Will throw error otherwise
+
+        :param card: The card to add."""
         if type(card) != Card:
             raise ValueError("You must only remove Cards types from your collection.")
 
@@ -48,6 +58,9 @@ class CollectionData(object):
                 self.collection_data['collection'][index]['collection_data']['owned']-= 1
 
     def num_owned(self,card):
+        """ Gets the number of owned cards with the same multiverse_id as the given card.
+        :param card: The card to check.
+        :return: The number of cards of this type that are owned in the collection. """
         if type(card) != Card:
             raise ValueError("You must only remove Cards types from your collection.")
 
@@ -63,11 +76,15 @@ class CollectionData(object):
 
     
     def save(self):
+        """ Save the collection data to disk.
+        :return: None """
         self.make_path()
         with open(self.file_path, 'w') as f:
             f.write(json.dumps(self.collection_data))
     
     def open_collection_data(self):
+        """ Get the data from disk.
+        :return: The data as a json style set of dicts and list. If no file exists then returns a default value."""
         self.make_path()
         # If the file doesn't exist
         if os.path.isfile(self.file_path):
@@ -78,6 +95,7 @@ class CollectionData(object):
 
 
     def make_path(self):
+        """ Make the path to the collection data file location on disk. """
         try:
             os.makedirs(self.file_dir)
         except OSError as error:

@@ -22,7 +22,7 @@ class InputBox(UIElement):
     ALLOWED_KEYS = ["listeners", "font_size", "active_color", "inactive_color"]
     KWARG_DEFAULTS = {
             "listeners": [], 
-            "text": 'Lightning Bolt',
+            "text": 'name:Lightning',
             "font_size": 32,
             "active_color": pg.Color('dodgerblue2'),
             "inactive_color": pg.Color('lightskyblue3')
@@ -283,7 +283,8 @@ class CardSprite(UIElement):
         
         self.card = card
         self.image = pg.image.load(image_path)
-
+        # 223 x 310 is the standard card size for the normal cards
+        self.image = pg.transform.scale(self.image, (223,310))
         self.rect = self.image.get_rect()
         self.on_clicks = on_clicks
 
@@ -330,7 +331,9 @@ class CardLayout(Layout):
         self.card_sprite.draw(surface)
         self.left_button.draw(surface)
         self.right_button.draw(surface)
-        surface.blit(self.txt_surface, (self.rect.x + self.button_width, self.rect.y + self.rect.height - self.button_height))
+        txt_x = (self.rect.x + self.rect.width // 2) - (self.txt_surface.get_rect().x // 2)
+
+        surface.blit(self.txt_surface, (txt_x, self.rect.y + self.rect.height - self.button_height))
         pg.draw.rect(surface, pg.Color('dodgerblue2'), self.rect, 2)
     
     def handle_event(self, event):
@@ -353,7 +356,8 @@ class CardLayout(Layout):
                                                 self.button_width,
                                                 self.button_height))
         self.rect = new_rect
-    
+            
+
     def add_card(self):
         self.cd.add_card(self.card_sprite.card)
         self.text = str(int(self.text) + 1)
