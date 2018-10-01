@@ -22,7 +22,7 @@ class InputBox(UIElement):
     ALLOWED_KEYS = ["listeners", "font_size", "active_color", "inactive_color"]
     KWARG_DEFAULTS = {
             "listeners": [], 
-            "text": 'name:Lightning',
+            "text": 'name:Lightning Bolt',
             "font_size": 32,
             "active_color": pg.Color('dodgerblue2'),
             "inactive_color": pg.Color('lightskyblue3')
@@ -83,23 +83,23 @@ class PageLayout(Layout):
         self.y_fit = None
         self.first_showing = 0
         self.last_showing = 0
-        self.set_layouts(layouts)
+        self.set_layouts()
 
 
-    def set_layouts(self, layouts, start_index=0):
+    def set_layouts(self, start_index=0):
         self.active_group = []
         x,y = self.rect.topleft
         width, height = self.rect.size
-        if len(layouts) - start_index > 0:
-            sprite_rect = layouts[0].rect
+        if len(self.layouts) - start_index > 0:
+            sprite_rect = self.layouts[0].rect
             self.x_fit = int(width / (sprite_rect.width + self.padding * 2))
             self.y_fit = int(height / (sprite_rect.height + self.padding * 2))
             self.first_showing = self.last_showing = start_index
             
 
             x_index = y_index = 0
-            for layout_index in range(min(self.x_fit * self.y_fit, len(layouts) - start_index)):
-                cur_layout = layouts[start_index + layout_index]
+            for layout_index in range(min(self.x_fit * self.y_fit, len(self.layouts) - start_index)):
+                cur_layout = self.layouts[start_index + layout_index]
                 x_index = layout_index % self.x_fit
                 y_index = layout_index // self.x_fit
 
@@ -116,12 +116,12 @@ class PageLayout(Layout):
 
     def next_page(self):
         if len(self.layouts) > 0 and self.last_showing != len(self.layouts):
-            self.set_layouts(self.layouts, self.last_showing)
+            self.set_layouts(self.last_showing)
 
     def prev_page(self):
         # len(self.sprites) > 0 shortcircuits the if statements so we don't crash if self.x_fit/self.y_fit are None
         if len(self.layouts) > 0 and self.first_showing - (self.x_fit * self.y_fit) >= 0:
-            self.set_layouts(self.layouts, self.first_showing - (self.x_fit * self.y_fit))
+            self.set_layouts(self.first_showing - (self.x_fit * self.y_fit))
 
     def draw(self, surface):
         for layout in self.active_group:
@@ -133,9 +133,10 @@ class PageLayout(Layout):
 
     def set_rect(self, new_rect):
         self.rect = new_rect
-        self.set_layouts(self.layouts, self.first_showing)
+        self.set_layouts(self.first_showing)
 
-
+    def swap_layout(self, index, new_layout):
+        self.layouts[index] = new_layout
 
 
 class Text(UIElement):
@@ -253,7 +254,6 @@ class Button(UIElement):
     def handle_event(self, event):
         if event.type == pg.MOUSEBUTTONDOWN:
             if self.rect.collidepoint(event.pos):
-                print('clicked')
                 for on_click in self.on_clicks:
                     on_click()
                     
@@ -279,7 +279,7 @@ class Button(UIElement):
                     self.image = pg.transform.flip(self.image, True, False)
 
 class CardSprite(UIElement):
-    def __init__(self, card, image_path, on_clicks=[]):
+    def __init__(self, card, image_path='./scr_images/blank_card.png', on_clicks=[]):
         
         self.card = card
         self.image = pg.image.load(image_path)
@@ -362,12 +362,10 @@ class CardLayout(Layout):
         self.cd.add_card(self.card_sprite.card)
         self.text = str(int(self.text) + 1)
         self.txt_surface = self.font.render(self.text, True, self.color)
-        print("added card")
     
     def remove_card(self):
         self.cd.remove_card(self.card_sprite.card)
         self.text = str(int(self.text) - 1)
         self.txt_surface = self.font.render(self.text, True, self.color)
-        print("removed card")
 
 

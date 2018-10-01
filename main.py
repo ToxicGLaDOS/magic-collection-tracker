@@ -11,22 +11,24 @@ import sys,requests,os
 from PIL import Image
 from io import BytesIO
 from collectiondata import CollectionData
-from requestformatter import RequestFormatter
+from requester import Requester
 from ui import *
 import datetime
 from cache import save, save_sprite, load, load_sprite, sprite_in_cache
 import mtgsdk
 from itertools import groupby
+import multiprocessing
 
 
 class Application(object):
     
     def __init__(self, width, height):
         self.cd = CollectionData()
-        self.rf = RequestFormatter()
+        self.rf = Requester()
         self.sets = mtgsdk.Set.all()
         self.screen = pygame.display.set_mode(size,pygame.RESIZABLE)
         self.sprites = pygame.sprite.Group()
+        self.pool = multiprocessing.Pool(processes=4)
         page_layout = PageLayout(100, 10, width-100, height-50-10)
         left_button = Button(         0,       height // 2, 100, 100, img_path="./scr_images/red_arrow.png", on_clicks=[page_layout.prev_page], flip=True)
         right_button = Button(width - 100, height // 2, 100, 100, img_path="./scr_images/red_arrow.png", on_clicks=[page_layout.next_page])
@@ -109,17 +111,37 @@ class Application(object):
         return layout
 
 
+
+    def cards_downloaded(self, results):
+        """ Takes the results of an asyncronous download and swaps layouts in the page layout
+        :param results: A list of the results from async_get_images
+        :return: None """
+        tab_children = self.tab_layout.get_active_tab_elements()
+
+        for child in tab_children:
+            if type(child) == PageLayout:
+                for result in results:
+                    index = result[0]
+                    data = result[1]
+                    card_data = result[2]
+                    sprite = CardSprite(card_data, data["path"])
+                    layout = self.create_card_layout(sprite)
+                    child.swap_layout(index, layout)
+        
+                child.set_layouts(start_index=child.first_showing)
+            
+
     # Bound to return key on text box
     def load_card_page(self, text):
+        cards_to_download = []
         # Get cards that match the search
         cards = self.rf.search(text)
-        print('sorting cards')
         cards = sorted(cards, key=lambda card: card.name)
         temp_cards = []
-        print('grouping cards')
         for key, group in groupby(cards, key=lambda x: x.name):
             temp_cards.extend(sorted(list(group), key=lambda card: datetime.datetime.strptime(self.get_set_release_date(card.set_name), '%Y-%m-%d')))
         cards = temp_cards
+
         # For each card save it to cache
         layouts = []
         for card in cards:
@@ -128,10 +150,17 @@ class Application(object):
             if card.multiverse_id != None:
                 data = None
                 if not sprite_in_cache(card.multiverse_id):
-                    data = RequestFormatter.load_image_from_server(card)
+                    cards_to_download.append((len(layouts), card))
+                    data = dict(img_data=None, path='')
                 else:
                     data = load_sprite(card.multiverse_id)
-                sprite = CardSprite(card, data["path"])
+                
+                if data['path']:
+                    # Card with image
+                    sprite = CardSprite(card, data["path"])
+                else:
+                    # Blank card
+                    sprite = CardSprite(card)
 
                 layout = self.create_card_layout(sprite)
 
@@ -140,14 +169,14 @@ class Application(object):
         active_tab_elements = self.tab_layout.get_active_tab_elements()
         
         # If any of the elements are PageLayouts than set there images up with what we found
-        print('setting layouts')
         for element in active_tab_elements:
             if type(element) == PageLayout:
 
                 element.layouts = layouts
-                element.set_layouts(layouts)
-        print('layouts complete')
-    
+                element.set_layouts()
+
+
+        self.rf.async_download_images(cards_to_download, self)
 
 
 
