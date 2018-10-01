@@ -6,6 +6,7 @@ from cache import save, save_sprite, load, load_sprite, sprite_in_cache
 from multiprocessing import Pool, Manager, Process
 
 class Requester(object):
+    sets = mtgsdk.Set.all()
     def __init__(self):
         self.page = 1
         self.cards = []
@@ -69,12 +70,17 @@ class Requester(object):
             return_list.append(self.async_results.pop(0))
         return return_list
         
-    def async_download_images(self, cards_to_download, app):
+    def async_download_images(self, cards_to_download):
         for card in cards_to_download:
             p = Process(target=Requester.async_get_images, args=(card, self.async_results))
             self.processes.append(p)
             p.start()
 
+    @staticmethod
+    def get_set_release_date(set_name):
+        for magic_set in Requester.sets:
+            if magic_set.name == set_name:
+                return magic_set.release_date
 
     @staticmethod
     def load_image_from_server(card):
