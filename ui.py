@@ -114,11 +114,11 @@ class PageLayout(Layout):
                 self.last_showing += 1
             
 
-    def next_page(self):
+    def next_page(self, button):
         if len(self.layouts) > 0 and self.last_showing != len(self.layouts):
             self.set_layouts(self.last_showing)
 
-    def prev_page(self):
+    def prev_page(self, button):
         # len(self.sprites) > 0 shortcircuits the if statements so we don't crash if self.x_fit/self.y_fit are None
         if len(self.layouts) > 0 and self.first_showing - (self.x_fit * self.y_fit) >= 0:
             self.set_layouts(self.first_showing - (self.x_fit * self.y_fit))
@@ -255,7 +255,7 @@ class Button(UIElement):
         if event.type == pg.MOUSEBUTTONDOWN:
             if self.rect.collidepoint(event.pos):
                 for on_click in self.on_clicks:
-                    on_click()
+                    on_click(self)
                     
 
     def draw(self, surface):

@@ -50,7 +50,9 @@ class Application(object):
             for sprite in self.sprites:
                 sprite.update()
 
-
+            # If there are results in the requester then we pop them out and load em up in the pagelayout
+            if self.rf.has_results_in_list():
+                self.change_page_layout_sprites(self.rf.pop_async_results())
 
 
             # Draw phase
@@ -94,7 +96,6 @@ class Application(object):
         return objs
     
     def get_set_release_date(self, set_name):
-        
         for magic_set in self.sets:
             if magic_set.name == set_name:
                 return magic_set.release_date
@@ -112,18 +113,18 @@ class Application(object):
 
 
 
-    def cards_downloaded(self, results):
+    def change_page_layout_sprites(self, layout_data):
         """ Takes the results of an asyncronous download and swaps layouts in the page layout
-        :param results: A list of the results from async_get_images
+        :param layouts: A list of the information to create new layouts with elements of this form: (index, img_data, card_data)
         :return: None """
+        # This will fail if we change tabs inbetween calls to this function
         tab_children = self.tab_layout.get_active_tab_elements()
-
         for child in tab_children:
             if type(child) == PageLayout:
-                for result in results:
-                    index = result[0]
-                    data = result[1]
-                    card_data = result[2]
+                for l_data in layout_data:
+                    index = l_data[0]
+                    data = l_data[1]
+                    card_data = l_data[2]
                     sprite = CardSprite(card_data, data["path"])
                     layout = self.create_card_layout(sprite)
                     child.swap_layout(index, layout)
