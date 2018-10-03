@@ -5,21 +5,16 @@
 # Event queue is processed in this file.
 
 
-import sys,requests,os
+import mtgsdk, sys, requests, os, multiprocessing, datetime, ntpath, PIL.Image
 from PIL import ImageTk
-import PIL.Image
 from io import BytesIO
 from collectiondata import CollectionData
 from requester import Requester
-import datetime
 from cache import save, save_sprite, load, load_sprite, sprite_in_cache
-import mtgsdk
 from itertools import groupby
-import multiprocessing
 from tkinter import *
 from tkinter import ttk
 from tkinter.filedialog import askopenfilename, asksaveasfilename
-import ntpath
 
 
 class Application(object):
@@ -88,23 +83,15 @@ class Application(object):
         # Main tab
         new_tab = CardViewer(self.tab_control, collection, height=700, background='bisque')
         self.tab_control.add(new_tab, text=title)
-        self.tab_control.grid(column=2,row=0,sticky=W+E)
-        
-        # Label
-        checkbox_label = Label(self.window, text='Edit')
-        checkbox_label.grid(column=0, row=0)
-
-        # Checkbox
-        checkbox = Checkbutton(self.window)
-        checkbox.grid(column=1,row=0, sticky=W)
+        self.tab_control.grid(column=0,row=0,sticky=W+E,rowspan=2)
 
         # Text entry
-        self.txt_entry = Entry(self.window, width=100)
-        self.txt_entry.grid(column=2,row=1, sticky=S)
+        txt_entry = Entry(new_tab, width=100)
+        txt_entry.grid(column=0,row=1, sticky=S)
 
         # Search button
-        search_button = Button(self.window, text='Search', command=lambda:new_tab.load_cards(self.txt_entry.get()))
-        search_button.grid(column=3,row=1)
+        search_button = Button(new_tab, text='Search', command=lambda:new_tab.load_cards(txt_entry.get()))
+        search_button.grid(column=1,row=1)
 
     
 
@@ -163,9 +150,9 @@ class CardViewer(Frame):
         self.images = []
         
         # Geometry managment
-        self.scrollable_canvas.pack(side=LEFT,anchor=E)
+        self.scrollable_canvas.grid(column=0,row=0)
         self.exterior_frame.pack(fill=BOTH)
-        self.scrollbar.pack(side=RIGHT, fill=Y)
+        self.scrollbar.grid(column=2,row=0,sticky=N+S)
 
         # Put exterior_frame in the canvas
         self.scrollable_canvas.create_window((0,0), window=self.exterior_frame, anchor=NW)
@@ -238,6 +225,9 @@ class CardViewer(Frame):
             self.after(20, self.__load_new_images)
 
     def __update_images(self, images, cards):
+        """ Destroy all current images and load in new ones """
+        for child in self.exterior_frame.winfo_children():
+            child.destroy()
         for index, image in enumerate(images):
             self.__update_image(index, image, cards[index])
             
