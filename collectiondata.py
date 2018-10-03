@@ -4,12 +4,11 @@ from mtgsdk import Card
 
 class CollectionData(object):
     default_collection = {'collection':[]}
-    def __init__(self):
-        self.file_dir = "../collection"
-        # For now assume the file is stored in this dir
-        self.file_path = os.path.join(self.file_dir,"collection-data.json")
+    def __init__(self, file_path=''):
+        
+        self.file_path = file_path
 
-        self.collection_data = self.open_collection_data()
+        self.collection_data = self.open_collection_data(file_path)
 
         
         
@@ -51,7 +50,6 @@ class CollectionData(object):
         # Grabs the multiverse_id value from all the cards in the collection
         # TODO : This can probably be cache instead of calculated every time we add a card if it becomes too slow to iterate through them all
         cards = [card['card_data']['multiverse_id'] for card in self.collection_data['collection']]
-        print(card.__dict__)
         if card.multiverse_id in cards:
             index = cards.index(card.multiverse_id)
             if self.collection_data['collection'][index]['collection_data']['owned'] >= 0:
@@ -75,32 +73,31 @@ class CollectionData(object):
             return '0'
 
     
-    def save(self):
-        """ Save the collection data to disk.
+    def save_as(self, file_path):
+        """ Save the collection data to disk as file_path
         :return: None """
-        self.make_path()
+        with open(file_path, 'w') as f:
+            f.write(json.dumps(self.collection_data))
+        self.file_path = file_path
+    
+    def save(self):
+        """ Save the collection data to disk as the file given to __init__
+        :return: None """
+        assert(self.file_path != '')
         with open(self.file_path, 'w') as f:
             f.write(json.dumps(self.collection_data))
     
-    def open_collection_data(self):
+    def open_collection_data(self, file_path):
         """ Get the data from disk.
         :return: The data as a json style set of dicts and list. If no file exists then returns a default value."""
-        self.make_path()
         # If the file doesn't exist
-        if os.path.isfile(self.file_path):
-            with open(self.file_path, 'r') as f:
+        if os.path.isfile(file_path):
+            with open(file_path, 'r') as f:
                 return json.load(f)
         else:
             return CollectionData.default_collection
 
 
-    def make_path(self):
-        """ Make the path to the collection data file location on disk. """
-        try:
-            os.makedirs(self.file_dir)
-        except OSError as error:
-            if error.errno != 17:  # File exists
-                raise
 
 
     
