@@ -10,8 +10,8 @@ from io import BytesIO
 
 class CardViewer(Frame):
     card_size = (223, 310)
-    def __init__(self, master, searchable, height=300, **kwargs):
-        super().__init__(master, class_='Card Viewer', **kwargs)
+    def __init__(self, master, searchable, height=300, class_='Card Viewer', **kwargs):
+        super().__init__(master, class_=class_, **kwargs)
         self.columns = 3
         self.scrollable_canvas = Canvas(self, height=height, background='red')
         self.exterior_frame = Frame(self.scrollable_canvas, background='blue')
@@ -108,16 +108,10 @@ class CardViewer(Frame):
         for child in self.exterior_frame.winfo_children():
             child.destroy()
         for index, image in enumerate(images):
-            self.__update_image(index, image, cards[index])
+            self.update_image(index, image, cards[index])
             
-    def __update_image(self, index, image, card):
-        column = index % self.columns
-        row = index // self.columns
-        
-        self.images[index] = image
-        print(f'updating image for {card.name}')
-        card_frame = CardFrame(self.exterior_frame, card, image, self.searchable, width=CardViewer.card_size[0], height=CardViewer.card_size[1], background='purple')
-        card_frame.grid(column=column, row=row, padx=5, pady=5)
+    def update_image(self, index, image, card):
+        raise NotImplementedError()
 
     def __make_image_from_path(self, path):
         pil_img = PIL.Image.open(path)
@@ -135,15 +129,45 @@ class CardViewer(Frame):
         
         return images
 
+class OnlineViewer(CardViewer):
+    card_size = (223, 310)
+    def __init__(self, master, searchable, add_card_callback, height=300, class_='Online Viewer', **kwargs):
+        super().__init__(master, searchable, height=height, class_=class_, **kwargs)
+        self.add_card_callback = add_card_callback
+    
+    def update_image(self, index, image, card):
+        column = index % self.columns
+        row = index // self.columns
+        
+        self.images[index] = image
+        print(f'updating image for {card.name}')
+        card_frame = OnlineCard(self.exterior_frame, card, image, self.add_card_callback, width=CardViewer.card_size[0], height=CardViewer.card_size[1], background='purple')
+        card_frame.grid(column=column, row=row, padx=5, pady=5)
+
+class LocalViewer(CardViewer):
+    card_size = (223, 310)
+    def __init__(self, master, searchable, remove_card_callback, collection, height=300, class_='Local Viewer', **kwargs):
+        super().__init__(master, searchable, height=height, class_=class_, **kwargs)
+        self.remove_card_callback = remove_card_callback
+        self.collection = collection
+        
+    def update_image(self, index, image, card):
+        column = index % self.columns
+        row = index // self.columns
+        
+        self.images[index] = image
+        print(f'updating image for {card.name}')
+        card_frame = OnlineCard(self.exterior_frame, card, image, self.remove_card_callback, width=CardViewer.card_size[0], height=CardViewer.card_size[1], background='purple')
+        card_frame.grid(column=column, row=row, padx=5, pady=5)
+
 
 class CardFrame(Frame):
-    def __init__(self, master, card, image, collection, **kwargs):
+    def __init__(self, master, card, image, **kwargs):
         super().__init__(master, class_='Card Frame', **kwargs)
         self.image = image
         width = self.image.width()
         height = self.image.height()
         self.card_data = card
-        self.collection = collection
         self.canvas = Canvas(self, width=width, height=height, background='green')
 
         self.canvas.create_image(0, 0, image=image, anchor=NW)
@@ -151,11 +175,6 @@ class CardFrame(Frame):
         self.canvas.pack()
 
         self.popup_menu = Menu(self, tearoff=0)
-        self.popup_menu.add_command(label="Add to collection",
-                                    command=self.add_to_collection)
-        self.popup_menu.add_command(label="Remove from collection",
-                                    command=self.remove_from_collection)
-
 
         self.popup_menu.bind("<Leave>", self.__leave)
         self.canvas.bind("<Button-3>", self.__popup)
@@ -168,9 +187,29 @@ class CardFrame(Frame):
             self.popup_menu.tk_popup(event.x_root, event.y_root)
         finally:
             self.popup_menu.grab_release()
+
+
+class OnlineCard(CardFrame):
+    def __init__(self, master, card, image, callback, **kwargs):
+        super().__init__(master, card, image, **kwargs)
+        self.popup_menu.add_command(label="Add to collection",
+                                    command=self.add_to_collection)
+        
+        self.callback = callback
+                        
     
     def add_to_collection(self):
-        self.collection.add_card(self.card_data)
+        self.callback(self.card_data)
+
+
+class LocalCard(CardFrame):
+    def __init__(self, master, card, image, **kwargs):
+        super().__init__(master, card, image, **kwargs)
+        self.popup_menu.add_command(label="Remove from collection",
+                                    command=self.remove_from_collection)
     
+        self.callback = callback
+
+
     def remove_from_collection(self):
-        self.collection.remove_card(self.card_data)
+        self.callback(self.card_data)

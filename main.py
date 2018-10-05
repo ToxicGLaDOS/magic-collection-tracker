@@ -12,7 +12,7 @@ from requester import Requester
 from tkinter import *
 from tkinter import ttk
 from tkinter.filedialog import askopenfilename, asksaveasfilename
-from ui.cardviewer import CardViewer
+from ui.cardviewer import OnlineViewer, LocalViewer
 
 class Application(object):
     def __init__(self):
@@ -34,7 +34,7 @@ class Application(object):
         
 
         searchable = Requester()
-        self.web_searcher = CardViewer(self.window, searchable, height=700, background='bisque')
+        self.web_searcher = OnlineViewer(self.window, searchable, self.add_card, height=700, background='bisque')
         self.web_searcher.pack(side=LEFT, fill=BOTH, expand=True)
 
         self.web_searcher.rowconfigure(0, weight=1)
@@ -50,8 +50,6 @@ class Application(object):
         
         self.tab_control.pack(side=RIGHT, fill=BOTH, expand=True)
         
-
-
         
         self.window.mainloop()
     
@@ -93,7 +91,7 @@ class Application(object):
     
     def new_card_viewer_tab(self, searchable, title='New Collection'):
         # Main tab
-        new_tab = CardViewer(self.tab_control, searchable, height=700, background='bisque')
+        new_tab = LocalViewer(self.tab_control, searchable, self.remove_card, searchable, height=700, background='bisque')
         self.tab_control.add(new_tab, text=title)
 
         new_tab.rowconfigure(0, weight=1)
@@ -106,6 +104,18 @@ class Application(object):
         # Search button
         search_button = Button(new_tab, text='Search', command=lambda:new_tab.load_cards(txt_entry.get()))
         search_button.grid(column=1,row=1)
+    
+    def add_card(self, card):
+        active_tab_name = self.tab_control.select()
+        active_tab = self.tab_control.nametowidget(active_tab_name)
+
+        active_tab.collection.add_card(card)
+    
+    def remove_card(self, card):
+        active_tab_name = self.tab_control.select()
+        active_tab = self.tab_control.nametowidget(active_tab_name)
+
+        active_tab.collection.remove_card(card)
 
 if __name__ == "__main__":
     Application()
