@@ -70,8 +70,11 @@ class CollectionData(object):
         cards = [card['card_data']['multiverse_id'] for card in self.collection_data['collection']]
         if card.multiverse_id in cards:
             index = cards.index(card.multiverse_id)
-            if self.collection_data['collection'][index]['collection_data']['owned'] >= 0:
-                self.collection_data['collection'][index]['collection_data']['owned']-= 1
+            self.collection_data['collection'][index]['collection_data']['owned']-= 1
+            
+            if self.collection_data['collection'][index]['collection_data']['owned'] <= 0:
+                self.collection_data['collection'].pop(index)
+
 
     def num_owned(self,card):
         """ Gets the number of owned cards with the same multiverse_id as the given card.
@@ -114,6 +117,9 @@ class CollectionData(object):
                 return json.load(f)
         else:
             return CollectionData.default_collection
+    
+    def get_collection_data(self):
+        return self.collection_data['collection']
 
 
 

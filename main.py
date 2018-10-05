@@ -12,14 +12,14 @@ from requester import Requester
 from tkinter import *
 from tkinter import ttk
 from tkinter.filedialog import askopenfilename, asksaveasfilename
-from ui.cardviewer import OnlineViewer, LocalViewer
+from ui.cardviewer import OnlineViewer, CollectionManager
 
 class Application(object):
     def __init__(self):
         self.requester = Requester()
         self.window = Tk()
         self.window.title("MTG Collection Tracker")
-        self.tab_control = ttk.Notebook(self.window)
+        self.tab_control = CollectionManager(self.window)
 
         # create a toplevel menu
         menubar = Menu(self.window)
@@ -34,7 +34,7 @@ class Application(object):
         
 
         searchable = Requester()
-        self.web_searcher = OnlineViewer(self.window, searchable, self.add_card, height=700, background='bisque')
+        self.web_searcher = OnlineViewer(self.window, searchable, self.tab_control.add_card, height=700, background='bisque')
         self.web_searcher.pack(side=LEFT, fill=BOTH, expand=True)
 
         self.web_searcher.rowconfigure(0, weight=1)
@@ -44,7 +44,7 @@ class Application(object):
         self.txt_entry.grid(column=0, row=1, sticky=S+W+E)
 
         # Search button
-        search_button = Button(self.web_searcher, text='Search', command=lambda:self.web_searcher.load_cards(self.txt_entry.get()))
+        search_button = Button(self.web_searcher, text='Search', command=lambda:self.web_searcher.search_cards(self.txt_entry.get()))
         search_button.grid(column=1,row=1, sticky=S)
         
         
@@ -78,7 +78,7 @@ class Application(object):
         self.tab_control.tab(active_tab, text=file_name_no_extension)
 
     def new_collection(self):
-        self.new_card_viewer_tab(CollectionData())
+        self.tab_control.new_local_viewer_tab(CollectionData())
     
     def open_collection(self):
         file_path = askopenfilename(initialdir = "~/",title = "Select file",filetypes = (("json files","*.json"),("all files","*.*")))
@@ -87,35 +87,11 @@ class Application(object):
 
         collection = CollectionData(file_path=file_path)
 
-        self.new_card_viewer_tab(collection, file_name_no_extension)
+        self.tab_control.new_local_viewer_tab(collection, file_name_no_extension)
     
-    def new_card_viewer_tab(self, searchable, title='New Collection'):
-        # Main tab
-        new_tab = LocalViewer(self.tab_control, searchable, self.remove_card, searchable, height=700, background='bisque')
-        self.tab_control.add(new_tab, text=title)
 
-        new_tab.rowconfigure(0, weight=1)
-
-
-        # Text entry
-        txt_entry = Entry(new_tab, width=100)
-        txt_entry.grid(column=0,row=1, sticky=S)
-
-        # Search button
-        search_button = Button(new_tab, text='Search', command=lambda:new_tab.load_cards(txt_entry.get()))
-        search_button.grid(column=1,row=1)
     
-    def add_card(self, card):
-        active_tab_name = self.tab_control.select()
-        active_tab = self.tab_control.nametowidget(active_tab_name)
 
-        active_tab.collection.add_card(card)
-    
-    def remove_card(self, card):
-        active_tab_name = self.tab_control.select()
-        active_tab = self.tab_control.nametowidget(active_tab_name)
-
-        active_tab.collection.remove_card(card)
 
 if __name__ == "__main__":
     Application()
