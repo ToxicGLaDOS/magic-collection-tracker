@@ -7,16 +7,18 @@ from cache import save_sprite, load_sprite, sprite_in_cache
 from PIL import ImageTk
 from io import BytesIO
 
-
+from random import choice
+from string import ascii_letters
 
 class CollectionManager(ttk.Notebook):
     def __init__(self, master, **kwargs):
         super().__init__(master, **kwargs)
 
     def add_card(self, card):
+        
         active_tab_name = self.select()
         local_viewer = self.nametowidget(active_tab_name)
-
+        print(f'add card {card.name} to tab {active_tab_name}')
         local_viewer.add_card(card)
     
     def remove_card(self, card):
@@ -25,9 +27,9 @@ class CollectionManager(ttk.Notebook):
 
         local_viewer.remove_card(card)
 
-    def new_local_viewer_tab(self, searchable, title='New Collection'):
+    def new_local_viewer_tab(self, collection, title='New collection'):
         # Main tab
-        new_tab = LocalViewer(self, searchable, self.remove_card, searchable, height=700, background='bisque')
+        new_tab = LocalViewer(self, collection, self.remove_card, height=700, background='bisque')
         self.add(new_tab, text=title)
 
         new_tab.rowconfigure(0, weight=1)
@@ -62,6 +64,7 @@ class CardViewer(Frame):
         self.images = []
         
         self.columnconfigure(0, weight=1)
+
         # Geometry managment
         self.scrollable_canvas.grid(column=0, row=0, sticky=N+E+S+W)
         self.exterior_frame.pack(fill=BOTH, expand=True)
@@ -188,14 +191,14 @@ class OnlineViewer(CardViewer):
 
 class LocalViewer(CardViewer):
     card_size = (223, 310)
-    def __init__(self, master, searchable, remove_card_callback, collection, height=300, class_='Local Viewer', **kwargs):
-        super().__init__(master, searchable, height=height, class_=class_, **kwargs)
+    def __init__(self, master, collection, remove_card_callback, height=300, class_='Local Viewer', **kwargs):
+        super().__init__(master, collection, height=height, class_=class_, **kwargs)
         self.remove_card_callback = remove_card_callback
         self.collection = collection
+        self.update_from_collection()
         
     def add_card(self, card):
         self.collection.add_card(card)
-        print(card.multiverse_id, card.name)
         self.update_from_collection()
     
     def remove_card(self, card):
@@ -203,6 +206,7 @@ class LocalViewer(CardViewer):
         self.update_from_collection()
     
     def update_from_collection(self):
+        print(self.collection)
         collection_data = self.collection.get_collection_data()
         card_data = [card['card_data'] for card in collection_data]
         cards = []
@@ -210,7 +214,7 @@ class LocalViewer(CardViewer):
             c = mtgsdk.Card()
             c.__dict__.update(card)
             cards.append(c)
-        print([card.multiverse_id for card in cards])
+        print([card.name for card in cards])
         self.load_cards(cards)
 
     def update_image(self, index, image, card):
@@ -219,7 +223,8 @@ class LocalViewer(CardViewer):
         
         self.images[index] = image
         print(f'updating image for {card.name}')
-        card_frame = LocalCard(self.exterior_frame, card, image, self.remove_card_callback, width=CardViewer.card_size[0], height=CardViewer.card_size[1], background='purple')
+        num_owned = self.collection.num_owned(card)
+        card_frame = LocalCard(self.exterior_frame, card, image, self.remove_card_callback, num_owned, width=CardViewer.card_size[0], height=CardViewer.card_size[1], background='purple')
         card_frame.grid(column=column, row=row, padx=5, pady=5)
 
 
@@ -234,7 +239,7 @@ class CardFrame(Frame):
 
         self.canvas.create_image(0, 0, image=image, anchor=NW)
 
-        self.canvas.pack()
+        self.canvas.pack(side=BOTTOM)
 
         self.popup_menu = Menu(self, tearoff=0)
 
@@ -265,14 +270,15 @@ class OnlineCard(CardFrame):
 
 
 class LocalCard(CardFrame):
-    def __init__(self, master, card, image, callback, **kwargs):
+    def __init__(self, master, card, image, callback, num_owned, **kwargs):
         super().__init__(master, card, image, **kwargs)
         self.popup_menu.add_command(label="Remove from collection",
                                     command=self.remove_from_collection)
         self.card = card
     
         self.callback = callback
-
+        self.label = Label(self, text=f'In collection: {num_owned}')
+        self.label.pack(side=TOP)
 
     def remove_from_collection(self):
         self.callback(self.card_data)

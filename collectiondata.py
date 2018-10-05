@@ -1,4 +1,4 @@
-import json,os
+import json,os,copy
 from mtgsdk import Card
 from searchparser import SearchParser
 
@@ -27,7 +27,6 @@ class CollectionData(object):
                 card.__dict__.update(card_dict)
 
                 cards.append(card)
-        print(f'cards found in collection: {[card.name for card in cards]}')
         return cards
 
 
@@ -116,7 +115,8 @@ class CollectionData(object):
             with open(file_path, 'r') as f:
                 return json.load(f)
         else:
-            return CollectionData.default_collection
+            default_copy = copy.deepcopy(CollectionData.default_collection)
+            return default_copy
     
     def get_collection_data(self):
         return self.collection_data['collection']
