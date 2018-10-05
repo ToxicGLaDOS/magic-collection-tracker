@@ -1,6 +1,6 @@
 import json,os
 from mtgsdk import Card
-
+from searchparser import SearchParser
 
 class CollectionData(object):
     default_collection = {'collection':[]}
@@ -10,8 +10,26 @@ class CollectionData(object):
 
         self.collection_data = self.open_collection_data(file_path)
 
-        
-        
+    def search(self, text):
+        """ Gets a list of cards based on the text.
+        :param text: The text used to search the collection
+        :return: A list of mtgsdk.Card objects that match the search. """
+        search_dict = SearchParser.get_dict(text)
+        cards = []
+        for card_data in self.collection_data['collection']:
+            # Pull out the card data
+            card_dict = card_data['card_data']
+            # If all of the search parameters appear in their respective locations for this card
+            # then we need to add it to the cards list
+            if all([search_dict[key].lower() in card_dict[key].lower() for key in search_dict.keys()]):
+                # Make a card object
+                card = Card()
+                card.__dict__.update(card_dict)
+
+                cards.append(card)
+        print(f'cards found in collection: {[card.name for card in cards]}')
+        return cards
+
 
     # Adds a card to the collection
     def add_card(self, card):

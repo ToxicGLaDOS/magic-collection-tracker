@@ -10,7 +10,6 @@ class Requester(object):
     sets = mtgsdk.Set.all()
     def __init__(self):
         self.page = 1
-        self.cards = []
         self.search_type = None
         self.search_for = None
 
@@ -25,13 +24,8 @@ class Requester(object):
 
     # Takes in the raw text from the user and formats a search query to mtgsdk
     def search(self, text):
-        pattern = re.compile(r'(name|mc|rarity|text):(.*)',re.IGNORECASE)
-        match_obj = re.match(pattern, text)
         kwargs = SearchParser.get_dict(text)
-        print(kwargs)
-        self.cards = mtgsdk.Card.where(**kwargs).all()
-        print([card.name for card in self.cards])
-        return self.cards
+        return mtgsdk.Card.where(**kwargs).all()
 
     def preforming_async_task(self):
         for process in self.processes:

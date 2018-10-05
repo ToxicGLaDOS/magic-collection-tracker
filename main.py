@@ -5,17 +5,14 @@
 # Event queue is processed in this file.
 
 
-import mtgsdk, sys, requests, os, multiprocessing, datetime, ntpath, PIL.Image
-from PIL import ImageTk
-from io import BytesIO
+import mtgsdk, sys, requests, os, multiprocessing, ntpath
+
 from collectiondata import CollectionData
 from requester import Requester
-from cache import save, save_sprite, load, load_sprite, sprite_in_cache
-from itertools import groupby
 from tkinter import *
 from tkinter import ttk
 from tkinter.filedialog import askopenfilename, asksaveasfilename
-
+from ui.cardviewer import CardViewer
 
 class Application(object):
     def __init__(self):
@@ -34,10 +31,28 @@ class Application(object):
         filemenu.add_command(label="New", command=self.new_collection)
         # display the menu
         self.window.config(menu=menubar)
+        
+
+        searchable = Requester()
+        self.web_searcher = CardViewer(self.window, searchable, height=700, background='bisque')
+        self.web_searcher.pack(side=LEFT, fill=BOTH, expand=True)
+
+        self.web_searcher.rowconfigure(0, weight=1)
+
+        # Text entry
+        self.txt_entry = Entry(self.web_searcher, width=100)
+        self.txt_entry.grid(column=0, row=1, sticky=S+W+E)
+
+        # Search button
+        search_button = Button(self.web_searcher, text='Search', command=lambda:self.web_searcher.load_cards(self.txt_entry.get()))
+        search_button.grid(column=1,row=1, sticky=S)
+        
+        
+        self.tab_control.pack(side=RIGHT, fill=BOTH, expand=True)
+        
 
 
-       
-
+        
         self.window.mainloop()
     
     def save_collection(self):
@@ -76,14 +91,13 @@ class Application(object):
 
         self.new_card_viewer_tab(collection, file_name_no_extension)
     
-        
-        
-    
-    def new_card_viewer_tab(self, collection, title='New Collection'):
+    def new_card_viewer_tab(self, searchable, title='New Collection'):
         # Main tab
-        new_tab = CardViewer(self.tab_control, collection, height=700, background='bisque')
+        new_tab = CardViewer(self.tab_control, searchable, height=700, background='bisque')
         self.tab_control.add(new_tab, text=title)
-        self.tab_control.grid(column=0,row=0,sticky=W+E,rowspan=2)
+
+        new_tab.rowconfigure(0, weight=1)
+
 
         # Text entry
         txt_entry = Entry(new_tab, width=100)
@@ -92,180 +106,6 @@ class Application(object):
         # Search button
         search_button = Button(new_tab, text='Search', command=lambda:new_tab.load_cards(txt_entry.get()))
         search_button.grid(column=1,row=1)
-
-    
-
-class CardFrame(Frame):
-    def __init__(self, master, card, image, collection, **kwargs):
-        super().__init__(master, class_='Card Frame', **kwargs)
-        self.image = image
-        width = self.image.width()
-        height = self.image.height()
-        self.card_data = card
-        self.collection = collection
-        self.canvas = Canvas(self, width=width, height=height, background='green')
-
-        self.canvas.create_image(0, 0, image=image, anchor=NW)
-
-        self.canvas.pack()
-
-        self.popup_menu = Menu(self, tearoff=0)
-        self.popup_menu.add_command(label="Add to collection",
-                                    command=self.add_to_collection)
-        self.popup_menu.add_command(label="Remove from collection",
-                                    command=self.remove_from_collection)
-
-
-        self.popup_menu.bind("<Leave>", self.__leave)
-        self.canvas.bind("<Button-3>", self.__popup)
-    
-    def __leave(self, event):
-        self.popup_menu.unpost()
-
-    def __popup(self, event):
-        try:
-            self.popup_menu.tk_popup(event.x_root, event.y_root)
-        finally:
-            self.popup_menu.grab_release()
-    
-    def add_to_collection(self):
-        self.collection.add_card(self.card_data)
-    
-    def remove_from_collection(self):
-        self.collection.remove_card(self.card_data)
-        
-class CardViewer(Frame):
-    card_size = (223, 310)
-    def __init__(self, master, collection_data, height=300, **kwargs):
-        super().__init__(master, class_='Card Viewer', **kwargs)
-        self.columns = 3
-        self.requester = Requester()
-        self.scrollable_canvas = Canvas(self, height=height, background='red')
-        self.exterior_frame = Frame(self.scrollable_canvas, background='blue')
-        self.scrollbar = Scrollbar(self, orient='vertical', command=self.scrollable_canvas.yview)
-        self.scrollable_canvas.configure(yscrollcommand=self.scrollbar.set)
-
-        self.collection = collection_data
-        # This is just here to keep references to prevent garbage collection
-        self.images = []
-        
-        # Geometry managment
-        self.scrollable_canvas.grid(column=0,row=0)
-        self.exterior_frame.pack(fill=BOTH)
-        self.scrollbar.grid(column=2,row=0,sticky=N+S)
-
-        # Put exterior_frame in the canvas
-        self.scrollable_canvas.create_window((0,0), window=self.exterior_frame, anchor=NW)
-
-        # Bind on scroll
-        self.exterior_frame.bind("<Configure>", self.__on_scroll)
-
-    def set_images_with_path(self, img_paths, cards):
-        self.images = self.__make_images_from_path(img_paths)
-        self.__update_images(self.images, cards)
-
-
-    def load_cards(self, search_text):
-        cards_to_download = []
-        # Get cards that match the search
-        cards = self.requester.search(search_text)
-
-        # Sort the results
-        cards = sorted(cards, key=lambda card: card.name)
-        temp_cards = []
-        for key, group in groupby(cards, key=lambda x: x.name):
-            temp_cards.extend(sorted(list(group), key=lambda card: datetime.datetime.strptime(Requester.get_set_release_date(card.set_name), '%Y-%m-%d')))
-        cards = temp_cards
-
-        paths = []
-        for card in cards:
-            print(f'loading card {card.name}')
-            # For some reason some cards don't have multiverse ids?
-            if card.multiverse_id != None:
-                data = None
-                if not sprite_in_cache(card.multiverse_id):
-                    cards_to_download.append((len(paths), card))
-                    data = dict(img_data=None, path='')
-                else:
-                    data = load_sprite(card.multiverse_id)
-                
-                if data['path']:
-                    # Card with image
-                    paths.append(data['path'])
-                else:
-                    # Blank card
-                    paths.append('./scr_images/blank_card.png')
-
-        # Update images
-        self.set_images_with_path(paths, cards)
-
-        # Download the ones that need to be downloaded
-        self.requester.async_download_images(cards_to_download)
-        # Load the new images
-        self.__load_new_images()
-        
-    def __on_scroll(self, event):
-        canvas = self.scrollable_canvas
-        # we resize the canvas so that it fits the amount of cards dictated by self.columns
-        canvas.configure(scrollregion=canvas.bbox("all"), width=self.exterior_frame.winfo_width())
-
-    def __load_new_images(self):
-        if self.requester.has_results_in_list():
-            results = self.requester.pop_async_results()
-            for index, img_data, card_obj in results:
-                image = self.__make_image_from_path(img_data['path'])
-                self.__update_image(index, image)
-
-        # I think in theory if the requester finishes it's last process right here
-        # we could end up missing some of the cards because preforming_async_task will be false
-        # but the data won't have been loaded yet... Maybe?
-
-        # If it's still loading data than try again in 20ms
-        if self.requester.preforming_async_task():
-            self.after(20, self.__load_new_images)
-
-    def __update_images(self, images, cards):
-        """ Destroy all current images and load in new ones """
-        for child in self.exterior_frame.winfo_children():
-            child.destroy()
-        for index, image in enumerate(images):
-            self.__update_image(index, image, cards[index])
-            
-    def __update_image(self, index, image, card):
-        column = index % self.columns
-        row = index // self.columns
-        
-        self.images[index] = image
-
-        card_frame = CardFrame(self.exterior_frame, card, image, self.collection, width=CardViewer.card_size[0], height=CardViewer.card_size[1], background='purple')
-        #card_frame = Frame(self.exterior_frame, width=CardViewer.card_size[0], height=CardViewer.card_size[1])
-        #canvas.create_image(0, 0, image=image, anchor='nw')
-        card_frame.grid(column=column, row=row, padx=5, pady=5)
-
-    def __make_image_from_path(self, path):
-        pil_img = PIL.Image.open(path)
-        pil_img = pil_img.resize(CardViewer.card_size, PIL.Image.ANTIALIAS)
-        img = ImageTk.PhotoImage(pil_img)
-
-        return img
-
-    def __make_images_from_path(self, img_paths):
-        images = []
-        for path in img_paths:
-            pil_img = PIL.Image.open(path)
-            pil_img = pil_img.resize(CardViewer.card_size, PIL.Image.ANTIALIAS)
-            images.append(ImageTk.PhotoImage(pil_img))
-        
-        return images
-
-
-        
-
-        
-        
-
-
-
 
 if __name__ == "__main__":
     Application()
